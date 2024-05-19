@@ -51,42 +51,53 @@ class BertSelfAttention(nn.Module):
 
     ### TODO
     # check * or @
-    print("query and key shape", query.shape)
-    
-    numer = query @ torch.transpose(key, 2, 3)
+    # print("key",key.shape)
+    # print("query shape",query.shape)
+    numer = torch.matmul(query,torch.transpose(key, 2, 3))
     # gives shape [bs, num_heads, seq_len, seq_len]
-    print("numer.shape bs,n_h,s_l,s_l",numer.shape)
+    # print("numer.shape bs,n_h,s_l,s_l",numer.shape)
+
+    # look at how to apply attention mask to each layer
+    # print(numer.shape, attention_mask.shape)
+    # print("one",numer[0])
+    # print("two",numer[1])
+    # numer = numer + attention_mask
+    # print("one",numer[0])
+    # print("two",numer[1])
+    # print("numer.shape bs,n_h,s_l,s_l",numer.shape)
     
-    # HOW TO attention mask
-    for i in range(numer.shape[0]):
-        for j in range(numer.shape[1]):
-            numer[i][j] = numer[i][j] + attention_mask
-    
-    print("numer.shape bs,n_h,s_l,s_l",numer.shape)
-    
-    denom = torch.sqrt(keys.shape[2])
+    # sqrt
+    denom = torch.sqrt(torch.tensor(key.shape[2]))
     # d is dimension of keys
     # should have same shape
-    
-    s_max = torch.softmax(numer / denom) #element-wise scalar division
+    # numer = numer + attention_mask
+    before = ((numer / denom) + attention_mask)
+    print('before', before.shape)
+    s_max = torch.softmax(before, dim=-1) #element-wise scalar division
     # should have same shape
     
     print("s_max shape", s_max.shape)
     
-    wt_values = s_max @ value
+    wt_values = torch.matmul(s_max,value)
     
-    print("weight values", wt_values.shape)
-    
+    # print("weight values", wt_values.shape)
+    # print("weight values", wt_values.shape)
+    wt_values = wt_values.transpose(1, 2)
+    # print("weight values", wt_values.shape)
+
+    cat = wt_values.reshape(query.shape[0], query.shape[2], self.all_head_size)
+    # print('cat',cat.shape)
+    return cat
     # we have control over attention heads and can try making different alpha vectors
     # to put different emphasis on different AH for diff tasks (ie a SA alpha vector)
     
     # you can use loops to concatenate at first to make sure it is working
     #  https://pytorch.org/docs/stable/generated/torch.cat.html
     #  https://pytorch.org/docs/stable/generated/torch.stack.html#torch.stack
-    cat = torch.cat(wt_values, dimension=2)
+    #cat = torch.cat(wt_values, dim=2)
     
-    print("cat shape  [bs, seq_len, num_attention_heads * attention_head_size = hidden_size]", cat.shape)
-    return cat
+    #print("cat shape  [bs, seq_len, num_attention_heads * attention_head_size = hidden_size]", cat.shape)
+    return wt_values
 
 
   def forward(self, hidden_states, attention_mask):
@@ -123,7 +134,7 @@ class BertLayer(nn.Module):
     self.out_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
     self.out_dropout = nn.Dropout(config.hidden_dropout_prob)
 
-  def add_norm(self, input, output, dense_layer, dropout, ln_layer):
+  def add_norm(self, input_, output, dense_layer, dropout, ln_layer):
     """
     This function is applied after the multi-head attention layer or the feed forward layer.
     input: the input of the previous layer
@@ -135,10 +146,12 @@ class BertLayer(nn.Module):
     # Hint: Remember that BERT applies dropout to the transformed output of each sub-layer,
     # before it is added to the sub-layer input and normalized with a layer norm.
     ### TODO
-    transformed = self.out_dense(output)
-    after_drop = self.out_dropout(transformed)
-    combined = input_ + after_drop
-    return self.out_layer_norm(combined, ln_layer)
+    
+    transformed = dense_layer(output)
+    post_drop = dropout(transformed)
+    # why did input turn yellow
+    combined = input_ + post_drop
+    return ln_layer(combined)
 
 
   def forward(self, hidden_states, attention_mask):
@@ -152,18 +165,19 @@ class BertLayer(nn.Module):
     4. An add-norm operation that takes the input and output of the feed forward layer.
     """
     ### TODO
-    multi_head_attention = self.self_attention
+    output = self.self_attention(hidden_states, attention_mask)
 
     # send input, output, self.out_dense, self.out_dropout, self.out_layer_norm
-    post_add = self.add_norm(hidden_states, multi_head_attention, self.attention_dense, self.attention_dropout, self.attention_layer_norm)
+    post_add = self.add_norm(hidden_states, output, self.attention_dense, self.attention_dropout, self.attention_layer_norm)
 
     # feed forward
-    feed_forward = self.interm_af(post_add)
+    feed_forward = self.interm_dense(post_add)
+    feed_forward = self.interm_af(feed_forward)
 
     # post feed
     post_feed = self.add_norm(post_add, feed_forward, self.out_dense, self.out_dropout, self.out_layer_norm)
 
-    pass
+    return post_feed
     # raise NotImplementedError
 
 
@@ -264,7 +278,7 @@ class BertModel(BertPreTrainedModel):
 
     # Feed to a transformer (a stack of BertLayers).
     sequence_output = self.encode(embedding_output, attention_mask=attention_mask)
-    print(sequence_output)
+    # print(sequence_output)
 
     # Get cls token hidden state.
     first_tk = sequence_output[:, 0]
