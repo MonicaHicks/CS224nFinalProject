@@ -50,54 +50,25 @@ class BertSelfAttention(nn.Module):
     #   [bs, seq_len, num_attention_heads * attention_head_size = hidden_size].
 
     ### TODO
-    # check * or @
-    # print("key",key.shape)
-    # print("query shape",query.shape)
+    bs, num_heads, seq_len, seq_len = query.size()
     numer = torch.matmul(query,torch.transpose(key, 2, 3))
     # gives shape [bs, num_heads, seq_len, seq_len]
-    # print("numer.shape bs,n_h,s_l,s_l",numer.shape)
-
-    # look at how to apply attention mask to each layer
-    # print(numer.shape, attention_mask.shape)
-    # print("one",numer[0])
-    # print("two",numer[1])
-    # numer = numer + attention_mask
-    # print("one",numer[0])
-    # print("two",numer[1])
-    # print("numer.shape bs,n_h,s_l,s_l",numer.shape)
     
     # sqrt
-    denom = torch.sqrt(torch.tensor(key.shape[2]))
+    denom = torch.sqrt(torch.tensor(key.shape[3]))
     # d is dimension of keys
     # should have same shape
-    # numer = numer + attention_mask
+
     before = ((numer / denom) + attention_mask)
-    print('before', before.shape)
     s_max = torch.softmax(before, dim=-1) #element-wise scalar division
     # should have same shape
-    
-    print("s_max shape", s_max.shape)
-    
+
     wt_values = torch.matmul(s_max,value)
-    
-    # print("weight values", wt_values.shape)
-    # print("weight values", wt_values.shape)
+
     wt_values = wt_values.transpose(1, 2)
-    # print("weight values", wt_values.shape)
 
     cat = wt_values.reshape(query.shape[0], query.shape[2], self.all_head_size)
-    # print('cat',cat.shape)
     return cat
-    # we have control over attention heads and can try making different alpha vectors
-    # to put different emphasis on different AH for diff tasks (ie a SA alpha vector)
-    
-    # you can use loops to concatenate at first to make sure it is working
-    #  https://pytorch.org/docs/stable/generated/torch.cat.html
-    #  https://pytorch.org/docs/stable/generated/torch.stack.html#torch.stack
-    #cat = torch.cat(wt_values, dim=2)
-    
-    #print("cat shape  [bs, seq_len, num_attention_heads * attention_head_size = hidden_size]", cat.shape)
-    return wt_values
 
 
   def forward(self, hidden_states, attention_mask):
@@ -134,7 +105,7 @@ class BertLayer(nn.Module):
     self.out_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
     self.out_dropout = nn.Dropout(config.hidden_dropout_prob)
 
-  def add_norm(self, input_, output, dense_layer, dropout, ln_layer):
+  def add_norm(self, input, output, dense_layer, dropout, ln_layer):
     """
     This function is applied after the multi-head attention layer or the feed forward layer.
     input: the input of the previous layer
@@ -150,7 +121,7 @@ class BertLayer(nn.Module):
     transformed = dense_layer(output)
     post_drop = dropout(transformed)
     # why did input turn yellow
-    combined = input_ + post_drop
+    combined = input + post_drop
     return ln_layer(combined)
 
 
