@@ -50,8 +50,8 @@ class BertSentimentClassifier(torch.nn.Module):
         # Create any instance variables you need to classify the sentiment of BERT embeddings.
         ### TODO
         self.sentiment = None
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.lin_layer = nn.Linear(config.hidden_size, config.hidden_size)
+        self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
+        self.lin_layer = torch.nn.Linear(config.hidden_size, config.hidden_size)
         #raise NotImplementedError
 
 
@@ -63,12 +63,12 @@ class BertSentimentClassifier(torch.nn.Module):
         ### TODO
         # encodes sentences using BERT and obtains pooled representation of each sentence
         output = self.bert(input_ids, attention_mask)
-        print(output)
+        # print("output", output)
         # classifies sentence by applying dropout on pooled output and project it using linear layer
-        output = self.dropout(output)
+        output = self.dropout(output["pooler_output"])
         output = self.lin_layer(output)
 
-        output = torch.softmax(output)
+        output = torch.nn.functional.softmax(output)
         return output
         #raise NotImplementedError
 
