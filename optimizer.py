@@ -61,14 +61,12 @@ class AdamW(Optimizer):
                 # Refer to the default project handout for more details.
 
                 ### TODO
-                # print("state", self.state)
-                
                 if 't' in state:
                     t = state['t'] + 1
                 else: 
                     t = 1
                 state['t'] = t
-                # print("t", t)
+
                 if 'm' in state:
                     m_l = state['m'] 
                 else: 
@@ -82,34 +80,13 @@ class AdamW(Optimizer):
                 beta_1 = group['betas'][0]
                 beta_2 = group['betas'][1]
 
-                # print("beta 1 ", beta_1)
-                # print("beta 2 ", beta_2)
-
-                # print('m_l', m_l)
-                # print('v_l', v_l)
-                
                 state['m'] = beta_1*m_l + (1-beta_1)*grad
                 state['v'] = beta_2*v_l + (1-beta_2)*(grad*grad)
-                # print('m', state['m'])
-                # print('v', state['v'])
 
-                # print("b^t", pow(beta_1,t))
-                m_hat = torch.div(state['m'],(torch.ones(p.size())-pow(beta_1,t)))
-                v_hat = state['v']/(torch.ones(p.size())-beta_2**t)
+                m_hat = state['m']/(1-beta_1**t)
+                v_hat = state['v']/(1-beta_2**t)
 
-                # print('m_hat',m_hat)
-                # print('v_hat', v_hat)
                 p.data = p.data - (alpha*m_hat/(torch.sqrt(v_hat) + group['eps']))
-
-                #weight decay
-                # print("weight decay", group['weight_decay'])
                 p.data = p.data - alpha*group['weight_decay']*p.data
-                # print("p", p)
-            # print("group", group)
-            
-
-                #raise NotImplementedError
-                # time.sleep(1000)
-            #p.data = above calculations 
 
         return loss
