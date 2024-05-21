@@ -70,12 +70,12 @@ class AdamW(Optimizer):
                 if 'm' in state:
                     m_l = state['m'] 
                 else: 
-                    m_l = torch.zeros(p.size())
+                    m_l = torch.zeros(p.size(), device=grad.device)
 
                 if 'v' in state:
                     v_l = state['v'] 
                 else:
-                    v_l = torch.zeros(p.size())
+                    v_l = torch.zeros(p.size(), device=grad.device)
                 
                 beta_1 = group['betas'][0]
                 beta_2 = group['betas'][1]

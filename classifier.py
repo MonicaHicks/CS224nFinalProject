@@ -68,7 +68,8 @@ class BertSentimentClassifier(torch.nn.Module):
         output = self.dropout(output["pooler_output"])
         output = self.lin_layer(output)
 
-        output = torch.nn.functional.softmax(output)
+        # output = torch.nn.functional.softmax(output)
+        #unnormalized logits
         return output
         #raise NotImplementedError
 
@@ -152,13 +153,13 @@ def load_data(filename, flag='train'):
     num_labels = {}
     data = []
     if flag == 'test':
-        with open(filename, 'r') as fp:
+        with open(filename, 'r', encoding="utf-8") as fp:
             for record in csv.DictReader(fp,delimiter = '\t'):
                 sent = record['sentence'].lower().strip()
                 sent_id = record['id'].lower().strip()
                 data.append((sent,sent_id))
     else:
-        with open(filename, 'r') as fp:
+        with open(filename, 'r', encoding="utf-8") as fp:
             for record in csv.DictReader(fp,delimiter = '\t'):
                 sent = record['sentence'].lower().strip()
                 sent_id = record['id'].lower().strip()
@@ -380,10 +381,10 @@ if __name__ == "__main__":
         test_out = 'predictions/' + args.fine_tune_mode + '-sst-test-out.csv'
     )
 
-    train(config)
+    # train(config)
 
     print('Evaluating on SST...')
-    test(config)
+    # test(config)
 
     print('Training Sentiment Classifier on cfimdb...')
     config = SimpleNamespace(
@@ -398,7 +399,8 @@ if __name__ == "__main__":
         test='data/ids-cfimdb-test-student.csv',
         fine_tune_mode=args.fine_tune_mode,
         dev_out = 'predictions/' + args.fine_tune_mode + '-cfimdb-dev-out.csv',
-        test_out = 'predictions/' + args.fine_tune_mode + '-cfimdb-test-out.csv'
+        test_out = 'predictions/' + args.fine_tune_mode + '-cfimdb-test-out.csv',
+        encoding="utf-8"
     )
 
     train(config)
