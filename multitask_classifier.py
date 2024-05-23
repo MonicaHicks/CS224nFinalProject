@@ -73,7 +73,9 @@ class MultitaskBERT(nn.Module):
                 param.requires_grad = True
         # You will want to add layers here to perform the downstream tasks.
         ### TODO
-        raise NotImplementedError
+        self.hidden_size = config.hidden_size
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        #raise NotImplementedError
 
 
     def forward(self, input_ids, attention_mask):
@@ -83,7 +85,10 @@ class MultitaskBERT(nn.Module):
         # When thinking of improvements, you can later try modifying this
         # (e.g., by adding other layers).
         ### TODO
-        raise NotImplementedError
+        output = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        output = output['pooler_output']
+        return output
+        # raise NotImplementedError
 
 
     def predict_sentiment(self, input_ids, attention_mask):
@@ -93,7 +98,11 @@ class MultitaskBERT(nn.Module):
         Thus, your output should contain 5 logits for each sentence.
         '''
         ### TODO
-        raise NotImplementedError
+        sent = self.forward(input_ids, attention_mask)
+        resize = nn.Linear(self.hidden_size, 5)
+        output = resize(sent)
+        return output
+        #raise NotImplementedError
 
 
     def predict_paraphrase(self,
@@ -104,7 +113,13 @@ class MultitaskBERT(nn.Module):
         during evaluation.
         '''
         ### TODO
-        raise NotImplementedError
+        sent_1 = self.forward(input_ids_1, attention_mask_1)
+        sent_2 = self.forward(input_ids_2, attention_mask_2)
+        cat = torch.cat((sent_1, sent_2), 1)
+        resize = nn.Linear(self.hidden_size + self.hidden_size, 1)
+        output = resize(cat)
+        return output
+        # raise NotImplementedError
 
 
     def predict_similarity(self,
@@ -113,8 +128,12 @@ class MultitaskBERT(nn.Module):
         '''Given a batch of pairs of sentences, outputs a single logit corresponding to how similar they are.
         Note that your output should be unnormalized (a logit).
         '''
-        ### TODO
-        raise NotImplementedError
+        sent_1 = self.forward(input_ids_1, attention_mask_1)
+        sent_2 = self.forward(input_ids_2, attention_mask_2)
+        cosine_sim = nn.CosineSimilarity(dim=1, eps=1e-6)
+        output = cosine_sim(sent_1, sent_2)
+        return output
+        # raise NotImplementedError
 
 
 
