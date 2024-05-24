@@ -99,7 +99,7 @@ class MultitaskBERT(nn.Module):
         '''
         ### TODO
         sent = self.forward(input_ids, attention_mask)
-        resize = nn.Linear(self.hidden_size, 5)
+        resize = nn.Linear(self.hidden_size, 5).to(attention_mask.device)
         output = resize(sent)
         return output
         #raise NotImplementedError
@@ -116,7 +116,7 @@ class MultitaskBERT(nn.Module):
         sent_1 = self.forward(input_ids_1, attention_mask_1)
         sent_2 = self.forward(input_ids_2, attention_mask_2)
         cat = torch.cat((sent_1, sent_2), 1)
-        resize = nn.Linear(self.hidden_size + self.hidden_size, 1)
+        resize = nn.Linear(self.hidden_size + self.hidden_size, 1).to(attention_mask_1.device)
         output = resize(cat)
         return output
         # raise NotImplementedError
@@ -130,12 +130,10 @@ class MultitaskBERT(nn.Module):
         '''
         sent_1 = self.forward(input_ids_1, attention_mask_1)
         sent_2 = self.forward(input_ids_2, attention_mask_2)
-        cosine_sim = nn.CosineSimilarity(dim=1, eps=1e-6)
+        cosine_sim = nn.CosineSimilarity(dim=1, eps=1e-6).to(attention_mask_1.device)
         output = cosine_sim(sent_1, sent_2)
         return output
         # raise NotImplementedError
-
-
 
 
 def save_model(model, optimizer, args, config, filepath):
