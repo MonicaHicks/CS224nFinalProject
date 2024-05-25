@@ -171,7 +171,23 @@ def train_multitask(args):
                                       collate_fn=sst_train_data.collate_fn)
     sst_dev_dataloader = DataLoader(sst_dev_data, shuffle=False, batch_size=args.batch_size,
                                     collate_fn=sst_dev_data.collate_fn)
+    
+    para_train_data = SentencePairTestDataset(para_train_data, args)
+    para_dev_data = SentencePairDataset(para_dev_data, args)
 
+    para_train_dataloader = DataLoader(para_train_data, shuffle=True, batch_size=args.batch_size,
+                                          collate_fn=para_train_data.collate_fn)
+    para_dev_dataloader = DataLoader(para_dev_data, shuffle=False, batch_size=args.batch_size,
+                                         collate_fn=para_dev_data.collate_fn)
+
+    sts_train_data = SentencePairTestDataset(sts_train_data, args)
+    sts_dev_data = SentencePairDataset(sts_dev_data, args, isRegression=True)
+
+    sts_train_dataloader = DataLoader(sts_train_data, shuffle=True, batch_size=args.batch_size,
+                                         collate_fn=sts_train_data.collate_fn)
+    sts_dev_dataloader = DataLoader(sts_dev_data, shuffle=False, batch_size=args.batch_size,
+                                        collate_fn=sts_dev_data.collate_fn)
+    
     # Init model.
     config = {'hidden_dropout_prob': args.hidden_dropout_prob,
               'num_labels': num_labels,
@@ -193,7 +209,10 @@ def train_multitask(args):
         model.train()
         train_loss = 0
         num_batches = 0
+        #SST
+        # """
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+            # print(batch)
             b_ids, b_mask, b_labels = (batch['token_ids'],
                                        batch['attention_mask'], batch['labels'])
 
@@ -203,6 +222,7 @@ def train_multitask(args):
 
             optimizer.zero_grad()
             logits = model.predict_sentiment(b_ids, b_mask)
+            print(logits.size(), b_labels.size(), b_labels.view(-1).size())
             loss = F.cross_entropy(logits, b_labels.view(-1), reduction='sum') / args.batch_size
 
             loss.backward()
@@ -210,11 +230,83 @@ def train_multitask(args):
 
             train_loss += loss.item()
             num_batches += 1
+        # """
+        
+        #PARAPHRASE
+        # """
+        for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+            # print(batch)
+            b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'], batch['token_ids_2'],
+                                        batch['attention_mask_1'],batch['attention_mask_2'], batch['sent_ids'])
+
+            b_ids_1 = b_ids_1.to(device)
+            b_ids_2 = b_ids_2.to(device)
+            b_mask_1 = b_mask_1.to(device)
+            b_mask_2 = b_mask_2.to(device)
+            b_labels = torch.tensor(b_labels).to(device)
+
+            optimizer.zero_grad()
+            logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2,b_mask_2)
+            lossfx = torch.nn.BCEWithLogitsLoss()
+            loss = lossfx(logits[:,0].to(torch.float32), b_labels.view(-1).to(torch.float32)) / args.batch_size
+
+            loss.backward()
+            optimizer.step()
+
+            train_loss += loss.item()
+            num_batches += 1
+        #  """
+        
+        #STS
+        for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
+            # print(batch)
+            b_ids_1, b_ids_2, b_mask_1, b_mask_2, b_labels = (batch['token_ids_1'], batch['token_ids_2'],
+                                        batch['attention_mask_1'],batch['attention_mask_2'], batch['sent_ids'])
+
+            b_ids_1 = b_ids_1.to(device)
+            b_ids_2 = b_ids_2.to(device)
+            b_mask_1 = b_mask_1.to(device)
+            b_mask_2 = b_mask_2.to(device)
+            b_labels = torch.tensor(b_labels).to(device)
+
+            optimizer.zero_grad()
+            logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2,b_mask_2)
+            # print(logits.size(), b_labels.size(), b_labels.view(-1).size())
+            lossfx = torch.nn.MSELoss()
+            loss = lossfx(logits.to(torch.float32), b_labels.view(-1).to(torch.float32)) / args.batch_size
+            # print(loss)
+            # loss.backward()
+            optimizer.step()
+
+            train_loss += loss#.item()
+            num_batches += 1
 
         train_loss = train_loss / (num_batches)
 
-        train_acc, train_f1, *_ = model_eval_sst(sst_train_dataloader, model, device)
-        dev_acc, dev_f1, *_ = model_eval_sst(sst_dev_dataloader, model, device)
+        # sst_train_acc, train_f1, *_ = model_eval_sst(sst_train_dataloader, model, device)
+        # sst_dev_acc, dev_f1, *_  =  model_eval_sst(sst_dev_dataloader, model, device)
+
+        # para_train_acc, train_f1, *_ = model_eval_sst(para_train_dataloader, model, device)
+        # para_dev_acc, dev_f1, *_  =  model_eval_sst(para_dev_dataloader, model, device)
+
+        # para_train_acc, train_f1, *_ = model_eval_sst(para_train_dataloader, model, device)
+        # para_dev_acc, dev_f1, *_  =  model_eval_sst(para_dev_dataloader, model, device)
+
+        sentiment_train_accuracy,sst_y_pred, sst_sent_ids, \
+                paraphrase_train_accuracy, para_y_pred, para_sent_ids, \
+                sts_train_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_train_dataloader,
+                                          para_train_dataloader,
+                                          sts_train_dataloader, model, device)
+        train_acc = (sentiment_train_accuracy + paraphrase_train_accuracy + sts_train_corr) / 3
+        # print()
+        sentiment_dev_accuracy,sst_y_pred, sst_sent_ids, \
+                paraphrase_dev_accuracy, para_y_pred, para_sent_ids, \
+                sts_dev_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_dev_dataloader,
+                                          para_dev_dataloader,
+                                          sts_dev_dataloader, model, device)
+
+        
+        dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + sts_dev_corr) / 3
 
         if dev_acc > best_dev_acc:
             best_dev_acc = dev_acc
