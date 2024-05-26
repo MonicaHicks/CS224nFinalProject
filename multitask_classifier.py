@@ -213,7 +213,7 @@ def train_multitask(args):
         # train_loss = 0
         num_batches = 0
         #SST
-        """
+        #"""
         sst_loss = 0
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             # print(batch)
@@ -234,10 +234,10 @@ def train_multitask(args):
 
             sst_loss += loss.item()
             num_batches += 1
-        """
+        #"""
         
         #PARAPHRASE
-        """
+        #"""
         para_loss =0
         for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             # print(batch)
