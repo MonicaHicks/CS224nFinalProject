@@ -245,7 +245,7 @@ def train_multitask(args):
             b_ids_2 = b_ids_2.to(device)
             b_mask_1 = b_mask_1.to(device)
             b_mask_2 = b_mask_2.to(device)
-            b_labels = torch.tensor(b_labels).to(device)
+            b_labels = -b_labels.to(device)
 
             optimizer.zero_grad()
             logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2,b_mask_2)
