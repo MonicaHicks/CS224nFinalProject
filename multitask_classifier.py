@@ -130,8 +130,11 @@ class MultitaskBERT(nn.Module):
         '''
         sent_1 = self.forward(input_ids_1, attention_mask_1)
         sent_2 = self.forward(input_ids_2, attention_mask_2)
-        cosine_sim = nn.CosineSimilarity(dim=1, eps=1e-6).to(attention_mask_1.device)
-        output = cosine_sim(sent_1, sent_2)
+        # cosine_sim = nn.CosineSimilarity().to(attention_mask_1.device)
+        # output = cosine_sim(sent_1, sent_2)
+        cat = torch.cat((sent_1, sent_2), 1)
+        resize = nn.Linear(self.hidden_size + self.hidden_size, 1).to(attention_mask_1.device)
+        output = resize(cat)
         return output
         # raise NotImplementedError
 
@@ -210,7 +213,7 @@ def train_multitask(args):
         # train_loss = 0
         num_batches = 0
         #SST
-        # """
+        """
         sst_loss = 0
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             # print(batch)
@@ -231,10 +234,10 @@ def train_multitask(args):
 
             sst_loss += loss.item()
             num_batches += 1
-        # """
+        """
         
         #PARAPHRASE
-        # """
+        """
         para_loss =0
         for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             # print(batch)
@@ -277,8 +280,9 @@ def train_multitask(args):
             logits = model.predict_similarity(b_ids_1, b_mask_1, b_ids_2,b_mask_2)
             # print(logits.size(), b_labels.size(), b_labels.view(-1).size())
             lossfx = torch.nn.MSELoss()
-            loss = lossfx(logits.to(torch.float32), b_labels.view(-1).to(torch.float32)) / args.batch_size
-            loss.requires_grad = True 
+            # torch.set_grad_enabled(True)
+            loss = lossfx(logits[:,0].to(torch.float32), b_labels.view(-1).to(torch.float32)) / args.batch_size
+            # loss.requires_grad = True 
             # print(loss)
             loss.backward()
             optimizer.step()
