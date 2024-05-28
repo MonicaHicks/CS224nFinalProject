@@ -32,6 +32,8 @@ from datasets import (
     load_multitask_data
 )
 
+import gc;
+
 from evaluation import model_eval_sst, model_eval_multitask, model_eval_test_multitask
 
 
@@ -75,6 +77,9 @@ class MultitaskBERT(nn.Module):
         ### TODO
         self.hidden_size = config.hidden_size
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.sst_linear = nn.Linear(self.hidden_size, N_SENTIMENT_CLASSES) 
+        self.para_linear = nn.Linear(self.hidden_size + self.hidden_size, 1)
+        self.sts_linear = nn.Linear(self.hidden_size + self.hidden_size, 1)
         #raise NotImplementedError
 
 
@@ -85,8 +90,11 @@ class MultitaskBERT(nn.Module):
         # When thinking of improvements, you can later try modifying this
         # (e.g., by adding other layers).
         ### TODO
+        gc.collect()
+        torch.cuda.empty_cache()
         output = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         output = output['pooler_output']
+        # output = self.dropout(output)
         return output
         # raise NotImplementedError
 
@@ -99,8 +107,8 @@ class MultitaskBERT(nn.Module):
         '''
         ### TODO
         sent = self.forward(input_ids, attention_mask)
-        resize = nn.Linear(self.hidden_size, 5).to(attention_mask.device)
-        output = resize(sent)
+        #resize = 
+        output = self.sst_linear(sent) #.to(attention_mask.device)
         return output
         #raise NotImplementedError
 
@@ -116,8 +124,7 @@ class MultitaskBERT(nn.Module):
         sent_1 = self.forward(input_ids_1, attention_mask_1)
         sent_2 = self.forward(input_ids_2, attention_mask_2)
         cat = torch.cat((sent_1, sent_2), 1)
-        resize = nn.Linear(self.hidden_size + self.hidden_size, 1).to(attention_mask_1.device)
-        output = resize(cat)
+        output = self.para_linear(cat)#.to(attention_mask_1.device)
         return output
         # raise NotImplementedError
 
@@ -130,11 +137,10 @@ class MultitaskBERT(nn.Module):
         '''
         sent_1 = self.forward(input_ids_1, attention_mask_1)
         sent_2 = self.forward(input_ids_2, attention_mask_2)
-        # cosine_sim = nn.CosineSimilarity().to(attention_mask_1.device)
+        # cosine_sim = nn.CosineSimilarity() #.to(attention_mask_1.device)
         # output = cosine_sim(sent_1, sent_2)
         cat = torch.cat((sent_1, sent_2), 1)
-        resize = nn.Linear(self.hidden_size + self.hidden_size, 1).to(attention_mask_1.device)
-        output = resize(cat)
+        output = self.sts_linear(cat) #.to(attention_mask_1.device)
         return output
         # raise NotImplementedError
 
@@ -178,15 +184,15 @@ def train_multitask(args):
     para_train_data = SentencePairDataset(para_train_data, args)
     para_dev_data = SentencePairDataset(para_dev_data, args)
 
-    para_train_dataloader = DataLoader(para_train_data, shuffle=False, batch_size=args.batch_size,
-                                          collate_fn=para_train_data.collate_fn)
+    para_train_dataloader = DataLoader(para_train_data, shuffle=True, batch_size=args.batch_size,
+                                          collate_fn=para_train_data.collate_fn, num_workers = 16)
     para_dev_dataloader = DataLoader(para_dev_data, shuffle=False, batch_size=args.batch_size,
-                                         collate_fn=para_dev_data.collate_fn)
+                                         collate_fn=para_dev_data.collate_fn, num_workers = 16)
 
     sts_train_data = SentencePairDataset(sts_train_data, args)
     sts_dev_data = SentencePairDataset(sts_dev_data, args, isRegression=True)
 
-    sts_train_dataloader = DataLoader(sts_train_data, shuffle=False, batch_size=args.batch_size,
+    sts_train_dataloader = DataLoader(sts_train_data, shuffle=True, batch_size=args.batch_size,
                                          collate_fn=sts_train_data.collate_fn)
     sts_dev_dataloader = DataLoader(sts_dev_data, shuffle=False, batch_size=args.batch_size,
                                         collate_fn=sts_dev_data.collate_fn)
@@ -248,7 +254,7 @@ def train_multitask(args):
             b_ids_2 = b_ids_2.to(device)
             b_mask_1 = b_mask_1.to(device)
             b_mask_2 = b_mask_2.to(device)
-            b_labels = -b_labels.to(device)
+            b_labels = b_labels.to(device)
 
             optimizer.zero_grad()
             logits = model.predict_paraphrase(b_ids_1, b_mask_1, b_ids_2,b_mask_2)
@@ -293,7 +299,7 @@ def train_multitask(args):
         sst_loss /= num_batches
         para_loss /= num_batches
         sts_loss /= num_batches
-        train_loss = (sst_loss + para_loss + sts_loss)/3
+        train_loss = (sst_loss + para_loss + sts_loss)
 
         # sst_train_acc, train_f1, *_ = model_eval_sst(sst_train_dataloader, model, device)
         # sst_dev_acc, dev_f1, *_  =  model_eval_sst(sst_dev_dataloader, model, device)
@@ -304,20 +310,20 @@ def train_multitask(args):
         # para_train_acc, train_f1, *_ = model_eval_sst(para_train_dataloader, model, device)
         # para_dev_acc, dev_f1, *_  =  model_eval_sst(para_dev_dataloader, model, device)
 
-        sentiment_train_accuracy,sst_y_pred, sst_sent_ids, \
-                paraphrase_train_accuracy, para_y_pred, para_sent_ids, \
-                sts_train_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_train_dataloader,
-                                          para_train_dataloader,
-                                          sts_train_dataloader, model, device)
-        train_acc = (sentiment_train_accuracy + paraphrase_train_accuracy + sts_train_corr) / 3
+        train_acc = 0
+        if epoch % 3 == 0:
+            sentiment_train_accuracy,sst_y_pred, sst_sent_ids, \
+                    paraphrase_train_accuracy, para_y_pred, para_sent_ids, \
+                    sts_train_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_train_dataloader,
+                                            para_train_dataloader,
+                                            sts_train_dataloader, model, device)
+            train_acc = (sentiment_train_accuracy + paraphrase_train_accuracy + sts_train_corr) / 3
         # print()
         sentiment_dev_accuracy,sst_y_pred, sst_sent_ids, \
                 paraphrase_dev_accuracy, para_y_pred, para_sent_ids, \
                 sts_dev_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_dev_dataloader,
                                           para_dev_dataloader,
                                           sts_dev_dataloader, model, device)
-
-        
         dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + sts_dev_corr) / 3
 
         if dev_acc > best_dev_acc:

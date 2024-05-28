@@ -120,7 +120,6 @@ class BertLayer(nn.Module):
     
     transformed = dense_layer(output)
     post_drop = dropout(transformed)
-    # why did input turn yellow
     combined = input + post_drop
     return ln_layer(combined)
 
@@ -195,7 +194,7 @@ class BertModel(BertPreTrainedModel):
     # segment = token type per #1051
 
     # make empty tensor
-    input_embeds = self.word_embedding(input_ids).clone().detach()
+    input_embeds = self.word_embedding(input_ids) #.clone().detach()
 
     # Use pos_ids to get position embedding from self.pos_embedding into pos_embeds.
     pos_ids = self.position_ids[:, :seq_length]
@@ -203,7 +202,7 @@ class BertModel(BertPreTrainedModel):
     ### TODO
     # pos_embeds = torch.tensor(self.pos_embedding(pos_ids))
     # suggestion from console error
-    pos_embeds = self.pos_embedding(pos_ids).clone().detach() #.requires_grad_(True)
+    pos_embeds = self.pos_embedding(pos_ids) #.clone().detach() #.requires_grad_(True)
 
 
     # Get token type ids. Since we are not considering token type, this embedding is
