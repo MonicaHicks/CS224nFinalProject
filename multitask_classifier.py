@@ -217,9 +217,10 @@ def train_multitask(args):
     for epoch in range(args.epochs):
         model.train()
         # train_loss = 0
-        num_batches = 0
+        # num_batches = 0
         #SST
         #"""
+        num_sst_batches = 0
         sst_loss = 0
         for batch in tqdm(sst_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             # print(batch)
@@ -239,11 +240,13 @@ def train_multitask(args):
             optimizer.step()
 
             sst_loss += loss.item()
-            num_batches += 1
+            num_sst_batches += 1
+        print("sst loss is ", sst_loss, " batches is ", num_sst_batches)
         #"""
         
         #PARAPHRASE
         #"""
+        num_para_batches = 0
         para_loss =0
         for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             # print(batch)
@@ -265,11 +268,12 @@ def train_multitask(args):
             optimizer.step()
 
             para_loss += loss.item()
-            num_batches += 1
+            num_para_batches += 1
         #  """
-        
+        print("para loss is ", para_loss, " batches is ", num_para_batches)
         #STS
         # """
+        num_sts_batches = 0
         sts_loss = 0
         for batch in tqdm(sts_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
             # print(batch)
@@ -294,11 +298,13 @@ def train_multitask(args):
             optimizer.step()
 
             sts_loss += loss.item()
-            num_batches += 1
+            num_sts_batches += 1
         # """
-        sst_loss /= num_batches
-        para_loss /= num_batches
-        sts_loss /= num_batches
+        print("sts loss is ", sts_loss, " batches is ", num_sts_batches)
+
+        sst_loss /= num_sts_batches
+        para_loss /= num_para_batches
+        sts_loss /= num_sts_batches
         train_loss = (sst_loss + para_loss + sts_loss)
 
         # sst_train_acc, train_f1, *_ = model_eval_sst(sst_train_dataloader, model, device)
@@ -324,11 +330,13 @@ def train_multitask(args):
                 sts_dev_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_dev_dataloader,
                                           para_dev_dataloader,
                                           sts_dev_dataloader, model, device)
-        dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + sts_dev_corr) / 3
+        dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + sts_dev_corr)
 
         if dev_acc > best_dev_acc:
+            print("old best dev acc = ", best_dev_acc, ". saved model.")
             best_dev_acc = dev_acc
             save_model(model, optimizer, args, config, args.filepath)
+            
 
         print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
 
