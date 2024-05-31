@@ -51,7 +51,7 @@ class BertSentimentClassifier(torch.nn.Module):
         ### TODO
         self.sentiment = None
         self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
-        self.lin_layer = torch.nn.Linear(config.hidden_size, config.hidden_size)
+        self.lin_layer = torch.nn.Linear(config.hidden_size, 5)
         #raise NotImplementedError
 
 
@@ -298,6 +298,7 @@ def train(args):
             num_batches += 1
 
         train_loss = train_loss / (num_batches)
+        print("sst loss is ", train_loss, " batches is ", num_batches)
 
         train_acc, train_f1, *_  = model_eval(train_dataloader, model, device)
         dev_acc, dev_f1, *_ = model_eval(dev_dataloader, model, device)

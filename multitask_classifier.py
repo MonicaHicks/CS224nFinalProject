@@ -307,15 +307,6 @@ def train_multitask(args):
         sts_loss /= num_sts_batches
         train_loss = (sst_loss + para_loss + sts_loss)
 
-        # sst_train_acc, train_f1, *_ = model_eval_sst(sst_train_dataloader, model, device)
-        # sst_dev_acc, dev_f1, *_  =  model_eval_sst(sst_dev_dataloader, model, device)
-
-        # para_train_acc, train_f1, *_ = model_eval_sst(para_train_dataloader, model, device)
-        # para_dev_acc, dev_f1, *_  =  model_eval_sst(para_dev_dataloader, model, device)
-
-        # para_train_acc, train_f1, *_ = model_eval_sst(para_train_dataloader, model, device)
-        # para_dev_acc, dev_f1, *_  =  model_eval_sst(para_dev_dataloader, model, device)
-
         train_acc = 0
         if epoch % 3 == 0:
             sentiment_train_accuracy,sst_y_pred, sst_sent_ids, \
@@ -330,7 +321,7 @@ def train_multitask(args):
                 sts_dev_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_dev_dataloader,
                                           para_dev_dataloader,
                                           sts_dev_dataloader, model, device)
-        dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + sts_dev_corr)
+        dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + sts_dev_corr) /3
 
         if dev_acc > best_dev_acc:
             print("old best dev acc = ", best_dev_acc, ". saved model.")
