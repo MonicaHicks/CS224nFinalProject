@@ -36,7 +36,7 @@ from datasets import (
 
 import gc;
 
-from evaluation import model_eval_sst, fast_model_eval_multitask, model_eval_multitask, model_eval_test_multitask
+from evaluation import model_eval_sst, model_eval_multitask, fast_model_eval_multitask, model_eval_test_multitask
 
 
 TQDM_DISABLE=False
@@ -256,7 +256,7 @@ def train_multitask(args):
             sst_overall_loss += sst_loss.item()
             num_sst_batches += 1
             
-            # print("sst loss is ", sst_overall_loss, " batches is ", num_sst_batches)
+            #print("sst loss is ", sst_overall_loss, " batches is ", num_sst_batches)
 
             #PARAPHRASE
             para_batch = next(para_train_iter)
@@ -281,7 +281,7 @@ def train_multitask(args):
             para_overall_loss += para_loss.item()
             num_para_batches += 1
 
-            # print("para loss is ", para_overall_loss, " batches is ", num_para_batches)
+            #print("para loss is ", para_overall_loss, " batches is ", num_para_batches)
 
             #STS
             # sts_batch = next(sts_train_iter)
@@ -307,19 +307,22 @@ def train_multitask(args):
             sts_overall_loss += sts_loss.item()
             num_sts_batches += 1
 
-            # print("sts loss is ", sts_overall_loss, " batches is ", num_sts_batches)
+            #print("sts loss is ", sts_overall_loss, " batches is ", num_sts_batches)
         #"""
+        print("sts loss is ", sts_overall_loss, "para loss is, ", para_overall_loss,"sst is", sst_overall_loss, " batches is ", num_sts_batches)
 
-        # sst_loss /= num_sts_batches
-        # para_loss /= num_para_batches
-        # sts_loss /= num_sts_batches
-        # train_loss = (sst_loss + para_loss + sts_loss)
-        train_loss = 0
+        sst_loss /= num_sts_batches
+        para_loss /= num_para_batches
+        sts_loss /= num_sts_batches
+        train_loss = (sst_loss + para_loss + sts_loss)/3
+        with open('train_loss.csv', 'a') as file:
+            file.write(str(train_loss.item()))
+            file.write('\n')
         train_acc = 0
         if epoch % 3 == 0 and False:
             sentiment_train_accuracy,sst_y_pred, sst_sent_ids, \
                     paraphrase_train_accuracy, para_y_pred, para_sent_ids, \
-                    sts_train_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_train_dataloader,
+                    sts_train_corr, sts_y_pred, sts_sent_ids = fast_model_eval_multitask(sst_train_dataloader,
                                             para_train_dataloader,
                                             sts_train_dataloader, model, device)
             train_acc = (sentiment_train_accuracy + paraphrase_train_accuracy + sts_train_corr) / 3
@@ -329,7 +332,10 @@ def train_multitask(args):
                 sts_dev_corr, sts_y_pred, sts_sent_ids = fast_model_eval_multitask(sst_dev_dataloader,
                                           para_dev_dataloader,
                                           sts_dev_dataloader, model, device)
-        dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + ((sts_dev_corr+1)/2)) /3
+        dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + (sts_dev_corr+1)/2) /3
+        with open('dev_accuracy.csv', 'a') as file:
+            file.write(str(dev_acc))
+            file.write('\n')
 
         if dev_acc > best_dev_acc:
             print("old best dev acc = ", best_dev_acc, ". saved model.")
@@ -426,8 +432,6 @@ def test_multitask(args):
             f.write(f"id \t Predicted_Similiary \n")
             for p, s in zip(test_sts_sent_ids, test_sts_y_pred):
                 f.write(f"{p} , {s} \n")
-        
-        # overall_dev = (args.sst_dev_out + args.para_dev_out + ((args.sts_dev_out+1)/2)) /3
 
 
 def get_args():
