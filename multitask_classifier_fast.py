@@ -36,7 +36,7 @@ from datasets import (
 
 import gc;
 
-from evaluation import model_eval_sst, model_eval_multitask, model_eval_test_multitask
+from evaluation import model_eval_sst, fast_model_eval_multitask, model_eval_multitask, model_eval_test_multitask
 
 
 TQDM_DISABLE=False
@@ -326,7 +326,7 @@ def train_multitask(args):
         # print()
         sentiment_dev_accuracy,sst_y_pred, sst_sent_ids, \
                 paraphrase_dev_accuracy, para_y_pred, para_sent_ids, \
-                sts_dev_corr, sts_y_pred, sts_sent_ids = model_eval_multitask(sst_dev_dataloader,
+                sts_dev_corr, sts_y_pred, sts_sent_ids = fast_model_eval_multitask(sst_dev_dataloader,
                                           para_dev_dataloader,
                                           sts_dev_dataloader, model, device)
         dev_acc = (sentiment_dev_accuracy + paraphrase_dev_accuracy + ((sts_dev_corr+1)/2)) /3
